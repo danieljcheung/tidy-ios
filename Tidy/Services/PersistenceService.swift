@@ -16,6 +16,7 @@ final class PersistenceService {
         static let reviewedPhotos = "reviewedPhotos"
         static let sessionStats = "sessionStats"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
+        static let hasSeenTutorial = "hasSeenTutorial"
         static let undoStack = "undoStack"
     }
 
@@ -153,6 +154,13 @@ final class PersistenceService {
     var hasCompletedOnboarding: Bool {
         get { defaults.bool(forKey: Keys.hasCompletedOnboarding) }
         set { defaults.set(newValue, forKey: Keys.hasCompletedOnboarding) }
+    }
+
+    // MARK: - Tutorial
+
+    var hasSeenTutorial: Bool {
+        get { defaults.bool(forKey: Keys.hasSeenTutorial) }
+        set { defaults.set(newValue, forKey: Keys.hasSeenTutorial) }
     }
 
     // MARK: - Undo Stack

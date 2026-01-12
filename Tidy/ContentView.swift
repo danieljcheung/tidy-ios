@@ -5,6 +5,8 @@ struct ContentView: View {
     @State private var hasCompletedOnboarding = PersistenceService.shared.hasCompletedOnboarding
     @State private var isAuthorized = PhotoLibraryService.shared.isAuthorized
     @State private var viewModel = MainSwipeViewModel()
+    @State private var showTutorial = false
+    @State private var elementFrames: [String: CGRect] = [:]
 
     var body: some View {
         Group {
@@ -23,20 +25,45 @@ struct ContentView: View {
     }
 
     private var mainAppView: some View {
-        NavigationStack {
-            MainSwipeView(viewModel: viewModel)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        trashButton
-                    }
+        ZStack {
+            NavigationStack {
+                MainSwipeView(viewModel: viewModel)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            trashButton
+                        }
 
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        maybeButton
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            maybeButton
+                        }
+                    }
+            }
+            .sheet(isPresented: $viewModel.showTrashReview) {
+                TrashReviewView()
+            }
+            .onPreferenceChange(FramePreferenceKey.self) { frames in
+                elementFrames = frames
+            }
+
+            // Tutorial overlay
+            if showTutorial {
+                TutorialOverlayView(
+                    isShowingTutorial: $showTutorial,
+                    elementFrames: elementFrames
+                )
+                .transition(.opacity)
+            }
+        }
+        .onChange(of: viewModel.currentPhoto) { _, newPhoto in
+            // Check if tutorial should show once we have photos loaded
+            if newPhoto != nil && !PersistenceService.shared.hasSeenTutorial && !showTutorial {
+                // Small delay to ensure frames are captured
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation {
+                        showTutorial = true
                     }
                 }
-        }
-        .sheet(isPresented: $viewModel.showTrashReview) {
-            TrashReviewView()
+            }
         }
     }
 
@@ -53,6 +80,7 @@ struct ContentView: View {
             }
             .foregroundStyle(viewModel.markedForDeletionCount > 0 ? .red : .secondary)
         }
+        .captureFrame(id: "trashButton")
     }
 
     private var maybeButton: some View {

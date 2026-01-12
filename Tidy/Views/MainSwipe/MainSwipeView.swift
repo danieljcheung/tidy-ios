@@ -60,10 +60,15 @@ struct MainSwipeView: View {
 
             Spacer()
 
-            // Title
+            // Title (triple-tap to reset tutorial for testing)
             Text("Tidy")
                 .font(TidyTheme.Typography.titleFallback())
                 .foregroundStyle(textColor)
+                .onTapGesture(count: 3) {
+                    #if DEBUG
+                    PersistenceService.shared.hasSeenTutorial = false
+                    #endif
+                }
 
             Spacer()
 
@@ -77,6 +82,7 @@ struct MainSwipeView: View {
                     .frame(width: 48, height: 48)
             }
             .buttonStyle(.plain)
+            .captureFrame(id: "filterButton")
         }
     }
 
@@ -147,6 +153,7 @@ struct MainSwipeView: View {
                 }
             }
         )
+        .captureFrame(id: "photoCard")
         .id(viewModel.currentPhoto?.id ?? "empty")
         .gesture(
             DragGesture()
@@ -190,6 +197,7 @@ struct MainSwipeView: View {
                     action: { viewModel.undo() },
                     isEnabled: viewModel.canUndo
                 )
+                .captureFrame(id: "undoButton")
                 .offset(y: -12)
 
                 Spacer()
@@ -225,6 +233,7 @@ struct MainSwipeView: View {
             total: total,
             progress: viewModel.progress
         )
+        .captureFrame(id: "progressBar")
     }
 }
 
