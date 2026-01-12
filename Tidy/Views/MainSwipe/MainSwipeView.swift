@@ -147,13 +147,18 @@ struct MainSwipeView: View {
                 }
             }
         )
+        .id(viewModel.currentPhoto?.id ?? "empty")
         .gesture(
             DragGesture()
                 .onChanged { value in
-                    viewModel.updateCardPosition(value.translation)
+                    if !viewModel.isProcessingSwipe {
+                        viewModel.updateCardPosition(value.translation)
+                    }
                 }
                 .onEnded { _ in
-                    viewModel.completeSwipe()
+                    if !viewModel.isProcessingSwipe {
+                        viewModel.completeSwipe()
+                    }
                 }
         )
     }

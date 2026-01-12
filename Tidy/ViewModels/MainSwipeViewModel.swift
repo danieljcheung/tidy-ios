@@ -19,6 +19,7 @@ final class MainSwipeViewModel {
     var cardOffset: CGSize = .zero
     var cardRotation: Double = 0
     var swipeDirection: SwipeDecision = .undecided
+    var isProcessingSwipe = false
 
     // UI state
     var showFilterSheet = false
@@ -238,10 +239,15 @@ final class MainSwipeViewModel {
 
     func completeSwipe() {
         let direction = swipeDirection
-        guard direction != .undecided else {
+        guard direction != .undecided, !isProcessingSwipe else {
             resetCardPosition()
             return
         }
+
+        isProcessingSwipe = true
+
+        // Process swipe immediately (before animation completes)
+        handleSwipe(direction)
 
         // Animate card off screen
         withAnimation(TidyTheme.Animation.cardSwipe) {
@@ -257,12 +263,12 @@ final class MainSwipeViewModel {
             }
         }
 
-        // Process swipe after animation
+        // Reset card position after animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.handleSwipe(direction)
             self?.cardOffset = .zero
             self?.cardRotation = 0
             self?.swipeDirection = .undecided
+            self?.isProcessingSwipe = false
         }
     }
 

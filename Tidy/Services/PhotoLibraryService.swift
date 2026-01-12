@@ -85,17 +85,31 @@ final class PhotoLibraryService {
             self.isLoading = true
         }
 
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        fetchOptions.includeHiddenAssets = false
-        fetchOptions.includeAllBurstAssets = false
+        // Run fetch on background thread to avoid blocking main queue
+        let (items, years) = await Task.detached(priority: .userInitiated) {
+            let fetchOptions = PHFetchOptions()
+            fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            fetchOptions.includeHiddenAssets = false
+            fetchOptions.includeAllBurstAssets = false
 
-        let results = PHAsset.fetchAssets(with: fetchOptions)
-        let assets = results.toArray()
-        let items = assets.map { PhotoItem(asset: $0) }
+            let results = PHAsset.fetchAssets(with: fetchOptions)
+            let assets = results.toArray()
 
-        // Extract available years
-        let years = Set(items.compactMap { $0.creationDate?.year }).sorted(by: >)
+            // Pre-access properties on background thread to avoid main queue warnings
+            let items = assets.map { asset -> PhotoItem in
+                // Touch the properties we'll need later to prefetch them
+                _ = asset.creationDate
+                _ = asset.mediaType
+                _ = asset.mediaSubtypes
+                _ = asset.duration
+                return PhotoItem(asset: asset)
+            }
+
+            // Extract available years
+            let years = Set(items.compactMap { $0.creationDate?.year }).sorted(by: >)
+
+            return (items, years)
+        }.value
 
         await MainActor.run {
             self.allPhotos = items
