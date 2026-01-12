@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tidy - Photo Review</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#b6890c",
+              "primary-dark": "#8a6605",
+              "background-light": "#F5F0E6", // Warm cream
+              "background-dark": "#221d10",
+              "charcoal": "#36322b",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"],
+              "serif": ["Newsreader", "serif"],
+            },
+            backgroundImage: {
+                'parchment-texture': "url('https://www.transparenttextures.com/patterns/cream-paper.png')",
+            },
+            boxShadow: {
+                'archival': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(182, 137, 12, 0.2)',
+                'wax-seal': '0 4px 6px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.3), inset 0 -2px 4px rgba(0,0,0,0.2)',
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .filled-icon {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Custom Vignette Overlay */
+        .vignette {
+            background: radial-gradient(circle, transparent 50%, rgba(54, 50, 43, 0.08) 100%);
+            pointer-events: none;
+        }
+        
+        /* Simulating paper grain opacity */
+        .paper-grain {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        /* Smooth font rendering */
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark text-charcoal dark:text-[#e8e1cf]">
+<!-- Background Texture & Vignette -->
+<div class="fixed inset-0 w-full h-full bg-parchment-texture paper-grain z-0"></div>
+<div class="fixed inset-0 w-full h-full vignette z-10"></div>
+<!-- Main Content Wrapper -->
+<div class="relative z-20 flex flex-col h-full w-full max-w-md mx-auto">
+<!-- Header: TopAppBar -->
+<header class="flex items-center p-6 pb-2 justify-between z-30">
+<!-- Left Placeholder for balance -->
+<div class="w-12"></div>
+<!-- Title -->
+<h1 class="text-charcoal dark:text-[#e8e1cf] text-3xl font-serif font-medium italic tracking-tight flex-1 text-center">
+                Tidy
+            </h1>
+<!-- Filter Button -->
+<div class="flex w-12 items-center justify-end">
+<button class="flex items-center justify-center rounded-full h-10 w-10 text-charcoal dark:text-[#e8e1cf] hover:bg-primary/10 transition-colors duration-200">
+<span class="material-symbols-outlined" style="font-size: 24px;">filter_list</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area: Image Frame & Indicators -->
+<main class="flex-1 flex flex-col items-center justify-center px-6 py-2 relative w-full">
+<!-- Maybe Indicator (Top) -->
+<div class="absolute top-4 left-0 right-0 flex justify-center opacity-60 pointer-events-none">
+<div class="flex flex-col items-center gap-1">
+<span class="material-symbols-outlined text-primary/70 text-lg">question_mark</span>
+<span class="font-serif text-sm tracking-widest text-primary/80 uppercase">Maybe</span>
+</div>
+</div>
+<!-- Image Frame Container -->
+<div class="relative w-full aspect-[3/4] max-h-[65vh] group cursor-grab active:cursor-grabbing">
+<!-- Stacked Cards Effect (Behind) -->
+<div class="absolute inset-0 bg-white dark:bg-[#2a2415] rounded-lg shadow-sm border border-charcoal/5 dark:border-white/5 transform scale-95 translate-y-3 opacity-60 z-0"></div>
+<div class="absolute inset-0 bg-white dark:bg-[#2a2415] rounded-lg shadow-sm border border-charcoal/5 dark:border-white/5 transform scale-[0.975] translate-y-1.5 opacity-80 z-10"></div>
+<!-- Main Photo Card -->
+<div class="absolute inset-0 bg-white dark:bg-[#2a2415] p-3 rounded-lg shadow-archival z-20 transition-transform duration-300 ease-out hover:scale-[1.01]">
+<div class="w-full h-full rounded bg-gray-200 dark:bg-gray-800 relative overflow-hidden">
+<!-- Image -->
+<div class="w-full h-full bg-cover bg-center" data-alt="A vintage style photograph of a quiet room with light streaming through a window" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCy0-ClpKbOLEsK2N9c30G2M4lOSZI88jsWgas8F0x3JC5b_GQJBHz38MY-tcmdeKz87fUYbOHXlr3HAfQt-Gsb-DX3GEpV4HBoiQqOV4-wcaS3hSuzxpE4xrtAoohQ0WbdYvO0IFSLE2ylhMo8oqa78IuIhSHhTJEPsGT9tRE-_k_SMSLrUd_FMgXs12_cPGeLDGgVDvZjzaJl3c7b1nZ_1PuFcPfcn6StuUmjzY5XC4S_USKkLKT1CzfzPlFIgsQqAtILrL11ulca');">
+</div>
+<!-- Inner Border/Matte Effect -->
+<div class="absolute inset-0 border-[0.5px] border-black/10 dark:border-white/10 pointer-events-none"></div>
+</div>
+</div>
+<!-- Delete Indicator (Left Floating) -->
+<div class="absolute left-[-20px] top-1/2 -translate-y-1/2 -translate-x-full lg:-translate-x-8 flex flex-col items-center gap-2 z-30 opacity-40">
+<div class="h-12 w-12 rounded-full border border-charcoal/20 flex items-center justify-center bg-background-light/80 backdrop-blur-sm">
+<span class="material-symbols-outlined text-charcoal/70">close</span>
+</div>
+<span class="font-serif text-xs tracking-wider text-charcoal/60 uppercase rotate-[-90deg]">Delete</span>
+</div>
+<!-- Keep Indicator (Right Floating) -->
+<div class="absolute right-[-20px] top-1/2 -translate-y-1/2 translate-x-full lg:translate-x-8 flex flex-col items-center gap-2 z-30 opacity-40">
+<div class="h-12 w-12 rounded-full border border-primary/30 flex items-center justify-center bg-background-light/80 backdrop-blur-sm">
+<span class="material-symbols-outlined text-primary">favorite</span>
+</div>
+<span class="font-serif text-xs tracking-wider text-primary uppercase rotate-[90deg]">Keep</span>
+</div>
+</div>
+<!-- Action Labels (Below Photo) -->
+<div class="flex justify-between w-full px-4 mt-6 items-center">
+<div class="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer group/action">
+<span class="material-symbols-outlined text-lg text-charcoal group-hover/action:text-red-800 transition-colors">delete</span>
+<span class="font-serif text-sm text-charcoal group-hover/action:text-red-800 transition-colors italic">Delete</span>
+</div>
+<!-- Wax Seal Undo FAB (Center-ish/Floating) -->
+<button class="relative -mt-6 h-14 w-14 rounded-full bg-[#8B0000] text-[#fcfbf8] shadow-wax-seal flex items-center justify-center group active:scale-95 transition-transform duration-150 border-2 border-[#6d0000]">
+<div class="absolute inset-0 rounded-full border border-white/20"></div>
+<span class="material-symbols-outlined text-2xl drop-shadow-md transform -rotate-12 group-hover:rotate-0 transition-transform">undo</span>
+</button>
+<div class="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer group/action">
+<span class="font-serif text-sm text-charcoal group-hover/action:text-primary transition-colors italic">Keep</span>
+<span class="material-symbols-outlined text-lg text-charcoal group-hover/action:text-primary transition-colors filled-icon">favorite</span>
+</div>
+</div>
+</main>
+<!-- Footer: ProgressBar -->
+<footer class="w-full p-6 pb-8 z-30">
+<div class="flex flex-col items-center gap-2">
+<p class="font-display text-[11px] font-semibold tracking-widest text-charcoal/60 dark:text-[#e8e1cf]/60 uppercase">
+                    124 of 1,832
+                </p>
+<div class="w-full max-w-[200px] h-1 bg-charcoal/10 dark:bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500 ease-out" style="width: 15%;"></div>
+</div>
+</div>
+</footer>
+</div>
+</body></html>
