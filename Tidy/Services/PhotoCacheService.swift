@@ -29,32 +29,40 @@ actor PhotoCacheService {
         }
 
         let options = PHImageRequestOptions()
-        options.deliveryMode = .opportunistic
+        options.deliveryMode = .fastFormat
         options.resizeMode = .fast
         options.isNetworkAccessAllowed = false
         options.isSynchronous = false
 
         return await withCheckedContinuation { continuation in
+            var hasResumed = false
+
             imageManager.requestImage(
                 for: asset,
                 targetSize: thumbnailSize,
                 contentMode: .aspectFill,
                 options: options
             ) { [weak self] image, info in
-                guard let self = self else {
+                // Ensure we only resume once
+                guard !hasResumed else { return }
+
+                let isCancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
+                let hasError = info?[PHImageErrorKey] != nil
+
+                if isCancelled || hasError {
+                    hasResumed = true
                     continuation.resume(returning: nil)
                     return
                 }
 
-                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-
-                if let image = image, !isDegraded {
-                    Task {
-                        await self.cacheThumbnail(image, forKey: cacheKey)
+                // For fastFormat, we get one callback with the final image
+                if let image = image {
+                    hasResumed = true
+                    if let self = self {
+                        Task {
+                            await self.cacheThumbnail(image, forKey: cacheKey)
+                        }
                     }
-                }
-
-                if !isDegraded || image != nil {
                     continuation.resume(returning: image)
                 }
             }
@@ -86,26 +94,35 @@ actor PhotoCacheService {
         )
 
         return await withCheckedContinuation { continuation in
+            var hasResumed = false
+
             imageManager.requestImage(
                 for: asset,
                 targetSize: targetSize,
                 contentMode: .aspectFit,
                 options: options
             ) { [weak self] image, info in
-                guard let self = self else {
+                // Ensure we only resume once
+                guard !hasResumed else { return }
+
+                let isCancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
+                let hasError = info?[PHImageErrorKey] != nil
+                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+
+                if isCancelled || hasError {
+                    hasResumed = true
                     continuation.resume(returning: nil)
                     return
                 }
 
-                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-
-                if let image = image, !isDegraded {
-                    Task {
-                        await self.cacheFullSize(image, forKey: cacheKey)
+                // Wait for the non-degraded (final) image
+                if !isDegraded, let image = image {
+                    hasResumed = true
+                    if let self = self {
+                        Task {
+                            await self.cacheFullSize(image, forKey: cacheKey)
+                        }
                     }
-                    continuation.resume(returning: image)
-                } else if isDegraded, image != nil {
-                    // Return degraded image first, will be replaced by high quality
                     continuation.resume(returning: image)
                 }
             }
@@ -126,14 +143,30 @@ actor PhotoCacheService {
         options.isSynchronous = false
 
         return await withCheckedContinuation { continuation in
+            var hasResumed = false
+
             imageManager.requestImage(
                 for: asset,
                 targetSize: PHImageManagerMaximumSize,
                 contentMode: .aspectFit,
                 options: options
             ) { image, info in
+                // Ensure we only resume once
+                guard !hasResumed else { return }
+
+                let isCancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
+                let hasError = info?[PHImageErrorKey] != nil
                 let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+
+                if isCancelled || hasError {
+                    hasResumed = true
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                // Wait for the non-degraded (final) image
                 if !isDegraded {
+                    hasResumed = true
                     continuation.resume(returning: image)
                 }
             }
