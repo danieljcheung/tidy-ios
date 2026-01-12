@@ -2,6 +2,11 @@ import Photos
 import UIKit
 import SwiftUI
 
+// Helper class to track if continuation has been resumed (reference type)
+private final class ContinuationState {
+    var hasResumed = false
+}
+
 actor PhotoCacheService {
     static let shared = PhotoCacheService()
 
@@ -35,7 +40,7 @@ actor PhotoCacheService {
         options.isSynchronous = false
 
         return await withCheckedContinuation { continuation in
-            var hasResumed = false
+            let state = ContinuationState()
 
             imageManager.requestImage(
                 for: asset,
@@ -43,27 +48,27 @@ actor PhotoCacheService {
                 contentMode: .aspectFill,
                 options: options
             ) { [weak self] image, info in
-                // Ensure we only resume once
-                guard !hasResumed else { return }
+                // Ensure we only resume once (state is reference type)
+                guard !state.hasResumed else { return }
+                state.hasResumed = true
 
                 let isCancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
                 let hasError = info?[PHImageErrorKey] != nil
 
                 if isCancelled || hasError {
-                    hasResumed = true
                     continuation.resume(returning: nil)
                     return
                 }
 
-                // For fastFormat, we get one callback with the final image
                 if let image = image {
-                    hasResumed = true
                     if let self = self {
                         Task {
                             await self.cacheThumbnail(image, forKey: cacheKey)
                         }
                     }
                     continuation.resume(returning: image)
+                } else {
+                    continuation.resume(returning: nil)
                 }
             }
         }
@@ -94,7 +99,7 @@ actor PhotoCacheService {
         )
 
         return await withCheckedContinuation { continuation in
-            var hasResumed = false
+            let state = ContinuationState()
 
             imageManager.requestImage(
                 for: asset,
@@ -103,24 +108,26 @@ actor PhotoCacheService {
                 options: options
             ) { [weak self] image, info in
                 // Ensure we only resume once
-                guard !hasResumed else { return }
+                guard !state.hasResumed else { return }
 
                 let isCancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
                 let hasError = info?[PHImageErrorKey] != nil
                 let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
 
                 if isCancelled || hasError {
-                    hasResumed = true
+                    state.hasResumed = true
                     continuation.resume(returning: nil)
                     return
                 }
 
                 // Wait for the non-degraded (final) image
-                if !isDegraded, let image = image {
-                    hasResumed = true
-                    if let self = self {
-                        Task {
-                            await self.cacheFullSize(image, forKey: cacheKey)
+                if !isDegraded {
+                    state.hasResumed = true
+                    if let image = image {
+                        if let self = self {
+                            Task {
+                                await self.cacheFullSize(image, forKey: cacheKey)
+                            }
                         }
                     }
                     continuation.resume(returning: image)
@@ -143,7 +150,7 @@ actor PhotoCacheService {
         options.isSynchronous = false
 
         return await withCheckedContinuation { continuation in
-            var hasResumed = false
+            let state = ContinuationState()
 
             imageManager.requestImage(
                 for: asset,
@@ -152,21 +159,21 @@ actor PhotoCacheService {
                 options: options
             ) { image, info in
                 // Ensure we only resume once
-                guard !hasResumed else { return }
+                guard !state.hasResumed else { return }
 
                 let isCancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
                 let hasError = info?[PHImageErrorKey] != nil
                 let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
 
                 if isCancelled || hasError {
-                    hasResumed = true
+                    state.hasResumed = true
                     continuation.resume(returning: nil)
                     return
                 }
 
                 // Wait for the non-degraded (final) image
                 if !isDegraded {
-                    hasResumed = true
+                    state.hasResumed = true
                     continuation.resume(returning: image)
                 }
             }
