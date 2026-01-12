@@ -5,7 +5,6 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
     case all = "all"
     case screenshots = "screenshots"
     case last30Days = "last30days"
-    case largestFirst = "largest"
     case maybePile = "maybe"
 
     var id: String { rawValue }
@@ -15,7 +14,6 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
         case .all: return "All Photos"
         case .screenshots: return "Screenshots"
         case .last30Days: return "Last 30 Days"
-        case .largestFirst: return "Largest First"
         case .maybePile: return "Maybe Pile"
         }
     }
@@ -25,7 +23,6 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
         case .all: return "photo.on.rectangle"
         case .screenshots: return "camera.viewfinder"
         case .last30Days: return "calendar"
-        case .largestFirst: return "arrow.up.doc"
         case .maybePile: return "questionmark.circle"
         }
     }
@@ -140,11 +137,6 @@ final class PhotoLibraryService {
             result = allPhotos.filter {
                 $0.asset.isFromLast30Days && !reviewed.contains($0.id) && !markedForDeletion.contains($0.id)
             }
-
-        case .largestFirst:
-            result = allPhotos
-                .filter { !reviewed.contains($0.id) && !markedForDeletion.contains($0.id) }
-                .sorted { $0.fileSize > $1.fileSize }
 
         case .maybePile:
             result = allPhotos.filter { maybePile.contains($0.id) && !markedForDeletion.contains($0.id) }

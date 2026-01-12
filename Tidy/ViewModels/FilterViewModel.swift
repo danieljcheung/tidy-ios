@@ -39,7 +39,6 @@ final class FilterViewModel {
         case .all: return allPhotosCount
         case .screenshots: return screenshotsCount
         case .last30Days: return last30DaysCount
-        case .largestFirst: return allPhotosCount
         case .maybePile: return maybePileCount
         }
     }
