@@ -1,11 +1,20 @@
 import SwiftUI
+import Photos
 
 struct TrashReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @State private var viewModel = TrashViewModel()
+
+    @State private var trashedPhotos: [PhotoItem] = []
+    @State private var selectedIds: Set<String> = []
     @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
+    @State private var showStats = false
+    @State private var deletionStats: SessionStats?
     @State private var selectedPhotoForDetail: PhotoItem?
+
+    private let photoService = PhotoLibraryService.shared
+    private let persistence = PersistenceService.shared
 
     private var backgroundColor: Color {
         TidyTheme.Colors.background(for: colorScheme)
@@ -20,32 +29,28 @@ struct TrashReviewView: View {
             ZStack {
                 backgroundColor.ignoresSafeArea()
 
-                if viewModel.trashedPhotos.isEmpty {
+                if trashedPhotos.isEmpty {
                     emptyState
                 } else {
                     VStack(spacing: 0) {
-                        // Info banner
                         infoBanner
 
-                        // Photo grid
                         PhotoGridView(
-                            photos: viewModel.trashedPhotos,
-                            selectedIds: viewModel.selectedPhotos,
+                            photos: trashedPhotos,
+                            selectedIds: selectedIds,
                             onTap: { photo in
-                                viewModel.toggleSelection(photo.id)
+                                toggleSelection(photo.id)
                             },
                             onLongPress: { photo in
                                 selectedPhotoForDetail = photo
                             }
                         )
 
-                        // Bottom action bar
                         bottomActionBar
                     }
                 }
 
-                // Loading overlay
-                if viewModel.isDeleting {
+                if isDeleting {
                     deletingOverlay
                 }
             }
@@ -53,19 +58,17 @@ struct TrashReviewView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .foregroundStyle(TidyTheme.Colors.primary)
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(TidyTheme.Colors.primary)
                 }
 
                 ToolbarItem(placement: .primaryAction) {
-                    if !viewModel.trashedPhotos.isEmpty {
-                        Button(viewModel.hasSelection ? "Deselect All" : "Select All") {
-                            if viewModel.hasSelection {
-                                viewModel.deselectAll()
+                    if !trashedPhotos.isEmpty {
+                        Button(selectedIds.isEmpty ? "Select All" : "Deselect") {
+                            if selectedIds.isEmpty {
+                                selectedIds = Set(trashedPhotos.map { $0.id })
                             } else {
-                                viewModel.selectAll()
+                                selectedIds.removeAll()
                             }
                         }
                         .foregroundStyle(TidyTheme.Colors.primary)
@@ -73,23 +76,21 @@ struct TrashReviewView: View {
                 }
             }
             .confirmationDialog(
-                "Delete \(viewModel.trashedCount) Photos?",
+                "Delete \(trashedPhotos.count) Photos?",
                 isPresented: $showDeleteConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Delete All", role: .destructive) {
-                    Task {
-                        await viewModel.emptyTrash()
-                    }
+                    emptyTrash()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("These photos will be moved to your Recently Deleted album where you can recover them for 30 days.")
+                Text("Photos will be moved to Recently Deleted and can be recovered for 30 days.")
             }
-            .fullScreenCover(isPresented: $viewModel.showStats) {
-                if let stats = viewModel.deletionStats {
+            .fullScreenCover(isPresented: $showStats) {
+                if let stats = deletionStats {
                     StatsView(stats: stats) {
-                        viewModel.showStats = false
+                        showStats = false
                         dismiss()
                     }
                 }
@@ -99,7 +100,7 @@ struct TrashReviewView: View {
             }
         }
         .onAppear {
-            viewModel.loadTrashedPhotos()
+            loadTrashedPhotos()
         }
     }
 
@@ -107,7 +108,7 @@ struct TrashReviewView: View {
 
     private var emptyState: some View {
         VStack(spacing: 20) {
-            Image(systemName: "trash")
+            Image(systemName: "trash.slash")
                 .font(.system(size: 48))
                 .foregroundStyle(textColor.opacity(0.3))
 
@@ -128,7 +129,7 @@ struct TrashReviewView: View {
             Image(systemName: "info.circle")
                 .foregroundStyle(TidyTheme.Colors.primary)
 
-            Text("Tap to select photos. Long press to preview.")
+            Text("Tap to select. Long press to preview.")
                 .font(.system(size: 13))
                 .foregroundStyle(textColor.opacity(0.7))
 
@@ -144,10 +145,9 @@ struct TrashReviewView: View {
             Divider()
 
             HStack(spacing: 16) {
-                // Restore button
-                if viewModel.hasSelection {
+                if !selectedIds.isEmpty {
                     Button {
-                        viewModel.restoreSelected()
+                        restoreSelected()
                     } label: {
                         Label("Restore", systemImage: "arrow.uturn.backward")
                             .font(.system(size: 15, weight: .medium))
@@ -157,13 +157,12 @@ struct TrashReviewView: View {
 
                 Spacer()
 
-                // Delete button
                 Button {
                     showDeleteConfirmation = true
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "trash.fill")
-                        Text(viewModel.hasSelection ? "Delete Selected (\(viewModel.selectedCount))" : "Empty Trash (\(viewModel.trashedCount))")
+                        Text(selectedIds.isEmpty ? "Empty Trash (\(trashedPhotos.count))" : "Delete (\(selectedIds.count))")
                     }
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
@@ -196,6 +195,86 @@ struct TrashReviewView: View {
             .padding(32)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    // MARK: - Actions
+
+    private func loadTrashedPhotos() {
+        trashedPhotos = photoService.photosMarkedForDeletion()
+    }
+
+    private func toggleSelection(_ id: String) {
+        if selectedIds.contains(id) {
+            selectedIds.remove(id)
+        } else {
+            selectedIds.insert(id)
+        }
+    }
+
+    private func restoreSelected() {
+        for id in selectedIds {
+            persistence.unmarkForDeletion(id)
+            persistence.unmarkAsReviewed(id)
+        }
+        selectedIds.removeAll()
+        loadTrashedPhotos()
+    }
+
+    private func emptyTrash() {
+        guard !trashedPhotos.isEmpty else { return }
+
+        isDeleting = true
+
+        let idsToDelete = selectedIds.isEmpty
+            ? trashedPhotos.map { $0.id }
+            : Array(selectedIds)
+
+        let assetsToDelete = trashedPhotos
+            .filter { idsToDelete.contains($0.id) }
+            .map { $0.asset }
+
+        // Calculate size
+        var totalSize: Int64 = 0
+        for asset in assetsToDelete {
+            let resources = PHAssetResource.assetResources(for: asset)
+            if let resource = resources.first,
+               let size = resource.value(forKey: "fileSize") as? Int64 {
+                totalSize += size
+            }
+        }
+
+        // Perform deletion
+        PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.deleteAssets(assetsToDelete as NSFastEnumeration)
+        } completionHandler: { success, error in
+            DispatchQueue.main.async {
+                self.isDeleting = false
+
+                if success {
+                    // Update stats
+                    var stats = self.persistence.sessionStats
+                    stats.bytesFreed = totalSize
+                    stats.photosDeleted = idsToDelete.count
+                    stats.endSession()
+                    self.persistence.sessionStats = stats
+
+                    // Clear from persistence
+                    for id in idsToDelete {
+                        self.persistence.unmarkForDeletion(id)
+                        self.persistence.removeFromMaybePile(id)
+                        self.persistence.unmarkAsReviewed(id)
+                    }
+
+                    self.deletionStats = stats
+                    self.selectedIds.removeAll()
+                    self.trashedPhotos.removeAll { idsToDelete.contains($0.id) }
+
+                    if self.trashedPhotos.isEmpty {
+                        self.showStats = true
+                    }
+                }
+            }
         }
     }
 }

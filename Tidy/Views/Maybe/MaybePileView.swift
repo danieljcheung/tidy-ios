@@ -1,8 +1,10 @@
 import SwiftUI
+import Photos
 
 struct MaybePileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+
     @State private var maybePhotos: [PhotoItem] = []
     @State private var selectedPhotoForDetail: PhotoItem?
 
@@ -26,10 +28,8 @@ struct MaybePileView: View {
                     emptyState
                 } else {
                     VStack(spacing: 0) {
-                        // Info banner
                         infoBanner
 
-                        // Photo grid
                         PhotoGridView(
                             photos: maybePhotos,
                             onTap: { photo in
@@ -43,16 +43,13 @@ struct MaybePileView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .foregroundStyle(TidyTheme.Colors.primary)
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(TidyTheme.Colors.primary)
                 }
 
                 if !maybePhotos.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Button("Review All") {
-                            // Switch to maybe filter and dismiss
                             persistence.currentFilter = PhotoFilter.maybePile.rawValue
                             dismiss()
                         }

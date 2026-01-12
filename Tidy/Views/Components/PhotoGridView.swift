@@ -7,8 +7,6 @@ struct PhotoGridView: View {
     let onTap: (PhotoItem) -> Void
     let onLongPress: ((PhotoItem) -> Void)?
 
-    @Environment(\.colorScheme) private var colorScheme
-
     private let columns = [
         GridItem(.flexible(), spacing: 2),
         GridItem(.flexible(), spacing: 2),
@@ -31,8 +29,10 @@ struct PhotoGridView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 2) {
                 ForEach(photos) { photo in
-                    PhotoGridCell(
-                        photo: photo,
+                    SimpleThumbnailView(
+                        asset: photo.asset,
+                        isVideo: photo.isVideo,
+                        duration: photo.durationFormatted,
                         isSelected: selectedIds.contains(photo.id),
                         onTap: { onTap(photo) },
                         onLongPress: { onLongPress?(photo) }
@@ -44,21 +44,22 @@ struct PhotoGridView: View {
     }
 }
 
-// MARK: - Grid Cell
-
-private struct PhotoGridCell: View {
-    let photo: PhotoItem
+// Simple thumbnail that loads without async/await continuation issues
+struct SimpleThumbnailView: View {
+    let asset: PHAsset
+    let isVideo: Bool
+    let duration: String
     let isSelected: Bool
     let onTap: () -> Void
     let onLongPress: () -> Void
 
-    @State private var thumbnail: UIImage?
+    @State private var image: UIImage?
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 // Thumbnail
-                if let image = thumbnail {
+                if let image = image {
                     Image(uiImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -71,7 +72,7 @@ private struct PhotoGridCell: View {
                 }
 
                 // Video indicator
-                if photo.isVideo {
+                if isVideo {
                     VStack {
                         Spacer()
                         HStack {
@@ -79,7 +80,7 @@ private struct PhotoGridCell: View {
                             HStack(spacing: 2) {
                                 Image(systemName: "play.fill")
                                     .font(.system(size: 10))
-                                Text(photo.durationFormatted)
+                                Text(duration)
                                     .font(.system(size: 10, weight: .medium))
                             }
                             .foregroundStyle(.white)
@@ -114,21 +115,33 @@ private struct PhotoGridCell: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .contentShape(Rectangle())
-        .onTapGesture {
-            onTap()
-        }
-        .onLongPressGesture {
-            onLongPress()
-        }
-        .task {
-            await loadThumbnail()
-        }
+        .onTapGesture { onTap() }
+        .onLongPressGesture { onLongPress() }
+        .onAppear { loadThumbnail() }
     }
 
-    private func loadThumbnail() async {
-        let image = await PhotoCacheService.shared.thumbnail(for: photo.asset)
-        await MainActor.run {
-            self.thumbnail = image
+    private func loadThumbnail() {
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .opportunistic
+        options.isNetworkAccessAllowed = false
+        options.resizeMode = .fast
+
+        let size = CGSize(width: 200, height: 200)
+
+        // Use direct callback - no continuation issues
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: size,
+            contentMode: .aspectFill,
+            options: options
+        ) { result, info in
+            let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+            // Accept any image, prefer non-degraded
+            if self.image == nil || !isDegraded {
+                DispatchQueue.main.async {
+                    self.image = result
+                }
+            }
         }
     }
 }
