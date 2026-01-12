@@ -78,7 +78,7 @@ enum TidyTheme {
     enum Dimensions {
         // Photo Card
         static let cardAspectRatio: CGFloat = 3.0 / 4.0
-        static let cardMaxHeightRatio: CGFloat = 0.65
+        static let cardMaxHeightRatio: CGFloat = 0.72
         static let cardPadding: CGFloat = 12
         static let cardCornerRadius: CGFloat = 8
 

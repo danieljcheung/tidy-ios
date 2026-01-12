@@ -1,5 +1,6 @@
 import SwiftUI
 import Photos
+import AVKit
 
 struct PhotoCardView: View {
     let photo: PhotoItem
@@ -10,6 +11,7 @@ struct PhotoCardView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var image: UIImage?
     @State private var isLoading = true
+    @State private var player: AVPlayer?
 
     private var cardBackground: Color {
         TidyTheme.Colors.cardBackground(for: colorScheme)
@@ -33,65 +35,18 @@ struct PhotoCardView: View {
                             .strokeBorder(borderColor, lineWidth: 1)
                     )
 
-                // Photo content
+                // Content: Video or Photo
                 VStack {
-                    if let image = image {
-                        Image(uiImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(
-                                width: width - TidyTheme.Dimensions.cardPadding * 2,
-                                height: maxHeight - TidyTheme.Dimensions.cardPadding * 2
-                            )
-                            .clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4))
-                            .overlay(
-                                // Inner matte border
-                                RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4)
-                                    .strokeBorder(.black.opacity(0.1), lineWidth: 0.5)
-                            )
+                    if photo.isVideo {
+                        videoContent(width: width, height: maxHeight)
                     } else {
-                        // Loading placeholder
-                        RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4)
-                            .fill(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.gray.opacity(0.2))
-                            .frame(
-                                width: width - TidyTheme.Dimensions.cardPadding * 2,
-                                height: maxHeight - TidyTheme.Dimensions.cardPadding * 2
-                            )
-                            .overlay {
-                                if isLoading {
-                                    ProgressView()
-                                        .tint(TidyTheme.Colors.primary)
-                                }
-                            }
+                        photoContent(width: width, height: maxHeight)
                     }
                 }
                 .padding(TidyTheme.Dimensions.cardPadding)
 
-                // Video indicator
-                if photo.isVideo {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            HStack(spacing: 4) {
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 12))
-                                Text(photo.durationFormatted)
-                                    .font(.system(size: 12, weight: .medium))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.black.opacity(0.6))
-                            .clipShape(Capsule())
-                            .padding(TidyTheme.Dimensions.cardPadding + 8)
-                        }
-                    }
-                }
-
                 // Live Photo indicator
-                if photo.isLivePhoto {
+                if photo.isLivePhoto && !photo.isVideo {
                     VStack {
                         HStack {
                             Image(systemName: "livephoto")
@@ -116,17 +71,126 @@ struct PhotoCardView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .task {
-            await loadImage()
+        .onAppear {
+            if photo.isVideo {
+                loadVideo()
+            } else {
+                loadImage()
+            }
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
         }
     }
 
-    private func loadImage() async {
+    // MARK: - Photo Content
+
+    @ViewBuilder
+    private func photoContent(width: CGFloat, height: CGFloat) -> some View {
+        if let image = image {
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(
+                    width: width - TidyTheme.Dimensions.cardPadding * 2,
+                    height: height - TidyTheme.Dimensions.cardPadding * 2
+                )
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4)
+                        .strokeBorder(.black.opacity(0.1), lineWidth: 0.5)
+                )
+        } else {
+            loadingPlaceholder(width: width, height: height)
+        }
+    }
+
+    // MARK: - Video Content
+
+    @ViewBuilder
+    private func videoContent(width: CGFloat, height: CGFloat) -> some View {
+        if let player = player {
+            VideoPlayer(player: player)
+                .frame(
+                    width: width - TidyTheme.Dimensions.cardPadding * 2,
+                    height: height - TidyTheme.Dimensions.cardPadding * 2
+                )
+                .clipShape(RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4)
+                        .strokeBorder(.black.opacity(0.1), lineWidth: 0.5)
+                )
+                .onAppear {
+                    player.play()
+                }
+        } else {
+            loadingPlaceholder(width: width, height: height)
+        }
+    }
+
+    // MARK: - Loading Placeholder
+
+    @ViewBuilder
+    private func loadingPlaceholder(width: CGFloat, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: TidyTheme.Dimensions.cardCornerRadius - 4)
+            .fill(colorScheme == .dark ? Color.gray.opacity(0.3) : Color.gray.opacity(0.2))
+            .frame(
+                width: width - TidyTheme.Dimensions.cardPadding * 2,
+                height: height - TidyTheme.Dimensions.cardPadding * 2
+            )
+            .overlay {
+                if isLoading {
+                    ProgressView()
+                        .tint(TidyTheme.Colors.primary)
+                }
+            }
+    }
+
+    // MARK: - Loading
+
+    private func loadImage() {
         isLoading = true
-        let loadedImage = await PhotoCacheService.shared.cardImage(for: photo.asset)
-        await MainActor.run {
-            self.image = loadedImage
-            self.isLoading = false
+
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        options.resizeMode = .exact
+        options.isNetworkAccessAllowed = false
+
+        let targetSize = CGSize(width: 600 * UIScreen.main.scale, height: 800 * UIScreen.main.scale)
+
+        PHImageManager.default().requestImage(
+            for: photo.asset,
+            targetSize: targetSize,
+            contentMode: .aspectFit,
+            options: options
+        ) { result, info in
+            let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+            if !isDegraded, let result = result {
+                DispatchQueue.main.async {
+                    self.image = result
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+
+    private func loadVideo() {
+        isLoading = true
+
+        let options = PHVideoRequestOptions()
+        options.isNetworkAccessAllowed = false
+        options.deliveryMode = .automatic
+
+        PHImageManager.default().requestPlayerItem(forVideo: photo.asset, options: options) { playerItem, info in
+            if let playerItem = playerItem {
+                DispatchQueue.main.async {
+                    self.player = AVPlayer(playerItem: playerItem)
+                    self.player?.isMuted = true  // Start muted
+                    self.isLoading = false
+                }
+            }
         }
     }
 }

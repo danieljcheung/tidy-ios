@@ -54,7 +54,7 @@ struct StatsView: View {
                 VStack(spacing: 24) {
                     // Space freed
                     StatCard(
-                        value: stats.gbFreedFormatted,
+                        value: stats.smartSizeFormatted,
                         label: "Space Freed",
                         icon: "externaldrive",
                         delay: 0.4,
